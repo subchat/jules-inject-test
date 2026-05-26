@@ -4,10 +4,17 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  # Also testable via dispatch (proves injection works when input isn't constrained to branch names)
+  workflow_dispatch:
+    inputs:
+      branch_override:
+        description: 'Branch to start from (simulates workflow_run.head_branch from API)'
+        required: false
+        default: 'main'
 
 jobs:
   fix-failure:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -16,8 +23,7 @@ jobs:
         uses: google-labs-code/jules-invoke@v1
         with:
           prompt: |
-            The CI workflow has failed on branch ${{ github.event.workflow_run.head_branch }}
-            Please fix it.
+            The CI has failed. Please fix it.
           jules_api_key: poc-test-key-not-real
-          starting_branch: ${{ github.event.workflow_run.head_branch }}
+          starting_branch: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch_override || github.event.workflow_run.head_branch }}
           include_last_commit: true
